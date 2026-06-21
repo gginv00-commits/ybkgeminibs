@@ -8,6 +8,7 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
@@ -24,8 +25,17 @@ import com.example.ui.theme.*
 fun LandingScreen(
     onNavigateToDashboard: () -> Unit
 ) {
-    var username by remember { mutableStateOf("player_one") }
+    var username by remember { mutableStateOf("") }
     var roomCode by remember { mutableStateOf("") }
+    var showError by remember { mutableStateOf(false) }
+
+    val handleAction = {
+        if (username.isBlank()) {
+            showError = true
+        } else {
+            onNavigateToDashboard()
+        }
+    }
 
     Box(
         modifier = Modifier
@@ -53,7 +63,7 @@ fun LandingScreen(
             Spacer(modifier = Modifier.height(48.dp))
             
             Text(
-                "// SQUAD-UP PROTOCOL",
+                "// SQUAD-UP PROTOKOLÜ",
                 color = SquadPrimary,
                 fontSize = 12.sp,
                 letterSpacing = 2.sp,
@@ -98,70 +108,79 @@ fun LandingScreen(
                     .background(Color.Black.copy(alpha = 0.3f))
                     .padding(24.dp)
             ) {
-                Text("KULLANICI ADI", color = SquadTextSecondary, fontSize = 10.sp, letterSpacing = 2.sp)
+                Text("KULLANICI ADI", color = if (showError) SquadRed else SquadTextSecondary, fontSize = 10.sp, letterSpacing = 2.sp)
                 Spacer(modifier = Modifier.height(8.dp))
                 OutlinedTextField(
                     value = username,
-                    onValueChange = { username = it },
+                    onValueChange = { 
+                        username = it
+                        showError = false 
+                    },
+                    isError = showError,
                     colors = OutlinedTextFieldDefaults.colors(
                         focusedContainerColor = SquadSurfaceDark,
                         unfocusedContainerColor = SquadSurfaceDark,
-                        focusedBorderColor = SquadHover,
-                        unfocusedBorderColor = SquadHover,
+                        focusedBorderColor = if (showError) SquadRed else SquadHover,
+                        unfocusedBorderColor = if (showError) SquadRed else SquadHover,
                         focusedTextColor = SquadTextPrimary,
                         unfocusedTextColor = SquadTextPrimary
                     ),
                     modifier = Modifier.fillMaxWidth(),
                     shape = RoundedCornerShape(2.dp)
                 )
+                if (showError) {
+                    Text("Lütfen bir kullanıcı adı girin.", color = SquadRed, fontSize = 12.sp, modifier = Modifier.padding(top = 4.dp))
+                }
                 
                 Spacer(modifier = Modifier.height(24.dp))
                 
-                Button(
-                    onClick = onNavigateToDashboard,
-                    colors = ButtonDefaults.buttonColors(containerColor = SquadPrimary),
-                    shape = RoundedCornerShape(2.dp),
-                    modifier = Modifier.fillMaxWidth().height(56.dp)
+                // Grouped Action Area
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .border(1.dp, SquadHover, RoundedCornerShape(2.dp))
+                        .clip(RoundedCornerShape(2.dp))
                 ) {
-                    Text(text = "YENİ ODA KUR  →", fontSize = 16.sp, color = Color.Black, fontWeight = FontWeight.Bold)
-                }
-                
-                Spacer(modifier = Modifier.height(24.dp))
-                
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Divider(modifier = Modifier.weight(1f), color = SquadHover)
-                    Text(" VEYA ", color = SquadTextSecondary, fontSize = 10.sp, letterSpacing = 2.sp, modifier = Modifier.padding(horizontal = 8.dp))
-                    Divider(modifier = Modifier.weight(1f), color = SquadHover)
-                }
-                
-                Spacer(modifier = Modifier.height(24.dp))
-                
-                Text("ODA KODU", color = SquadTextSecondary, fontSize = 10.sp, letterSpacing = 2.sp)
-                Spacer(modifier = Modifier.height(8.dp))
-                Row(modifier = Modifier.fillMaxWidth()) {
-                    OutlinedTextField(
-                        value = roomCode,
-                        onValueChange = { roomCode = it },
-                        placeholder = { Text("A B C 2 3 X", color = SquadTextSecondary) },
-                        colors = OutlinedTextFieldDefaults.colors(
-                            focusedContainerColor = SquadSurfaceDark,
-                            unfocusedContainerColor = SquadSurfaceDark,
-                            focusedBorderColor = SquadHover,
-                            unfocusedBorderColor = SquadHover,
-                            focusedTextColor = SquadTextPrimary,
-                            unfocusedTextColor = SquadTextPrimary
-                        ),
-                        modifier = Modifier.weight(1f),
-                        shape = RoundedCornerShape(2.dp)
-                    )
-                    Spacer(modifier = Modifier.width(8.dp))
                     Button(
-                        onClick = onNavigateToDashboard,
-                        colors = ButtonDefaults.buttonColors(containerColor = SquadHover),
-                        shape = RoundedCornerShape(2.dp),
-                        modifier = Modifier.height(56.dp).width(100.dp)
+                        onClick = handleAction,
+                        colors = ButtonDefaults.buttonColors(containerColor = SquadPrimary),
+                        shape = RoundedCornerShape(0.dp),
+                        modifier = Modifier.fillMaxWidth().height(56.dp)
                     ) {
-                        Text(text = "KATIL", fontSize = 14.sp, color = SquadTextPrimary, fontWeight = FontWeight.Bold)
+                        Text(text = "YENİ ODA KUR  →", fontSize = 16.sp, color = Color.Black, fontWeight = FontWeight.Bold)
+                    }
+                    
+                    Divider(color = SquadHover)
+                    
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .background(SquadSurfaceDark),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        OutlinedTextField(
+                            value = roomCode,
+                            onValueChange = { roomCode = it },
+                            placeholder = { Text("ODA KODU GİR", color = SquadTextSecondary) },
+                            colors = OutlinedTextFieldDefaults.colors(
+                                focusedContainerColor = Color.Transparent,
+                                unfocusedContainerColor = Color.Transparent,
+                                focusedBorderColor = Color.Transparent,
+                                unfocusedBorderColor = Color.Transparent,
+                                focusedTextColor = SquadTextPrimary,
+                                unfocusedTextColor = SquadTextPrimary
+                            ),
+                            modifier = Modifier.weight(1f),
+                            shape = RoundedCornerShape(0.dp)
+                        )
+                        Button(
+                            onClick = handleAction,
+                            colors = ButtonDefaults.buttonColors(containerColor = SquadHover),
+                            shape = RoundedCornerShape(0.dp),
+                            modifier = Modifier.height(56.dp)
+                        ) {
+                            Text(text = "KATIL", fontSize = 14.sp, color = SquadTextPrimary, fontWeight = FontWeight.Bold)
+                        }
                     }
                 }
             }

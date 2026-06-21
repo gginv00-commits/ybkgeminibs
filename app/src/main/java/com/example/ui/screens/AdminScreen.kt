@@ -45,15 +45,15 @@ fun AdminScreen(
     val rooms by viewModel.rooms.collectAsStateWithLifecycle()
 
     var selectedTab by remember { mutableStateOf(0) }
-    val tabs = listOf("Overview", "Users", "Rooms")
+    val tabs = listOf("Genel Bakış", "Kullanıcılar", "Odalar")
 
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("Admin Dashboard", fontWeight = FontWeight.Bold, color = SquadTextPrimary) },
+                title = { Text("Yönetici Paneli", fontWeight = FontWeight.Bold, color = SquadTextPrimary) },
                 navigationIcon = {
                     IconButton(onClick = onNavigateBack) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back", tint = SquadTextPrimary)
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Geri", tint = SquadTextPrimary)
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(containerColor = SquadSurfaceDark)
@@ -109,14 +109,14 @@ fun AccessDeniedScreen(onNavigateBack: () -> Unit) {
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.Center
     ) {
-        Icon(Icons.Default.Block, contentDescription = "Denied", tint = SquadRed, modifier = Modifier.size(64.dp))
+        Icon(Icons.Default.Block, contentDescription = "Reddedildi", tint = SquadRed, modifier = Modifier.size(64.dp))
         Spacer(modifier = Modifier.height(16.dp))
-        Text("Access Denied", fontSize = 24.sp, fontWeight = FontWeight.Bold, color = SquadTextPrimary)
+        Text("Erişim Reddedildi", fontSize = 24.sp, fontWeight = FontWeight.Bold, color = SquadTextPrimary)
         Spacer(modifier = Modifier.height(8.dp))
-        Text("You do not have permission to view this page.", color = SquadTextSecondary)
+        Text("Bu sayfayı görüntüleme yetkiniz yok.", color = SquadTextSecondary)
         Spacer(modifier = Modifier.height(24.dp))
         Button(onClick = onNavigateBack, colors = ButtonDefaults.buttonColors(containerColor = SquadPrimary)) {
-            Text("Go Back", color = Color.Black)
+            Text("Geri Dön", color = Color.Black)
         }
     }
 }
@@ -129,18 +129,18 @@ fun OverviewTab(users: List<User>, rooms: List<SyncRoom>) {
         verticalArrangement = Arrangement.spacedBy(16.dp)
     ) {
         item {
-            Text("System Statistics", fontSize = 20.sp, fontWeight = FontWeight.Bold, color = SquadTextPrimary)
+            Text("Sistem İstatistikleri", fontSize = 20.sp, fontWeight = FontWeight.Bold, color = SquadTextPrimary)
         }
         item {
             Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(16.dp)) {
-                StatCard("Total Users", users.size.toString(), Modifier.weight(1f))
-                StatCard("Active Rooms", rooms.size.toString(), Modifier.weight(1f))
+                StatCard("Toplam Kullanıcı", users.size.toString(), Modifier.weight(1f))
+                StatCard("Aktif Odalar", rooms.size.toString(), Modifier.weight(1f))
             }
         }
         item {
             Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(16.dp)) {
-                StatCard("Banned Users", users.count { it.isBanned }.toString(), Modifier.weight(1f))
-                StatCard("Admins", users.count { it.role == "Admin" }.toString(), Modifier.weight(1f))
+                StatCard("Yasaklı Kullanıcılar", users.count { it.isBanned }.toString(), Modifier.weight(1f))
+                StatCard("Yöneticiler", users.count { it.role == "Admin" }.toString(), Modifier.weight(1f))
             }
         }
     }
@@ -190,25 +190,25 @@ fun UserAdminCard(user: User, onToggleBan: (User) -> Unit) {
                 if (user.role == "Admin") {
                     Spacer(modifier = Modifier.width(8.dp))
                     Box(modifier = Modifier.clip(RoundedCornerShape(4.dp)).background(SquadPrimary).padding(horizontal = 4.dp, vertical = 2.dp)) {
-                        Text("Admin", color = Color.Black, fontSize = 10.sp, fontWeight = FontWeight.Bold)
+                        Text("Yönetici", color = Color.Black, fontSize = 10.sp, fontWeight = FontWeight.Bold)
                     }
                 }
                 if (user.isBanned) {
                     Spacer(modifier = Modifier.width(8.dp))
                     Box(modifier = Modifier.clip(RoundedCornerShape(4.dp)).background(SquadRed).padding(horizontal = 4.dp, vertical = 2.dp)) {
-                        Text("Banned", color = Color.White, fontSize = 10.sp, fontWeight = FontWeight.Bold)
+                        Text("Yasaklı", color = Color.White, fontSize = 10.sp, fontWeight = FontWeight.Bold)
                     }
                 }
             }
             Spacer(modifier = Modifier.height(4.dp))
-            val dateStr = SimpleDateFormat("MMM dd, yyyy", Locale.getDefault()).format(Date(user.joinedAt))
-            Text("Joined: $dateStr", color = SquadTextSecondary, fontSize = 12.sp)
+            val dateStr = SimpleDateFormat("dd MMM, yyyy", Locale.getDefault()).format(Date(user.joinedAt))
+            Text("Katılım: $dateStr", color = SquadTextSecondary, fontSize = 12.sp)
         }
         if (user.role != "Admin") { // Prevent banning other admins for simplicity
             IconButton(onClick = { onToggleBan(user) }) {
                 Icon(
                     imageVector = if (user.isBanned) Icons.Default.CheckCircle else Icons.Default.Block,
-                    contentDescription = "Toggle Ban",
+                    contentDescription = "Yasağı Değiştir",
                     tint = if (user.isBanned) SquadGreen else SquadRed
                 )
             }
@@ -220,7 +220,7 @@ fun UserAdminCard(user: User, onToggleBan: (User) -> Unit) {
 fun RoomsAdminTab(rooms: List<SyncRoom>, onDeleteRoom: (SyncRoom) -> Unit) {
     if (rooms.isEmpty()) {
         Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-            Text("No active rooms.", color = SquadTextSecondary)
+            Text("Aktif oda bulunmuyor.", color = SquadTextSecondary)
         }
     } else {
         LazyColumn(
@@ -248,10 +248,11 @@ fun RoomAdminCard(room: SyncRoom, onDeleteRoom: (SyncRoom) -> Unit) {
         Column(modifier = Modifier.weight(1f)) {
             Text(room.name, color = SquadTextPrimary, fontWeight = FontWeight.Bold, fontSize = 16.sp)
             Spacer(modifier = Modifier.height(4.dp))
-            Text("Type: ${room.type} • Active: ${room.activeUsers}", color = SquadTextSecondary, fontSize = 12.sp)
+            val typeStr = if (room.type == "Private") "Gizli" else "Açık"
+            Text("Tür: $typeStr • Aktif: ${room.activeUsers}", color = SquadTextSecondary, fontSize = 12.sp)
         }
         IconButton(onClick = { onDeleteRoom(room) }) {
-            Icon(Icons.Default.Delete, contentDescription = "Delete Room", tint = SquadRed)
+            Icon(Icons.Default.Delete, contentDescription = "Odayı Sil", tint = SquadRed)
         }
     }
 }

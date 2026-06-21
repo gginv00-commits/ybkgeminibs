@@ -50,22 +50,22 @@ fun RoomScreen(
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text(room?.name ?: "Loading...", fontWeight = FontWeight.Bold, color = SquadTextPrimary) },
+                title = { Text(room?.name ?: "Yükleniyor...", fontWeight = FontWeight.Bold, color = SquadTextPrimary) },
                 navigationIcon = {
                     IconButton(onClick = onNavigateBack) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back", tint = SquadTextPrimary)
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Geri", tint = SquadTextPrimary)
                     }
                 },
                 actions = {
                     IconButton(onClick = { isMuted = !isMuted }) {
                         Icon(
                             imageVector = if (isMuted) Icons.Default.MicOff else Icons.Default.Mic,
-                            contentDescription = "Mute Toggle",
+                            contentDescription = "Susturmayı Aç/Kapat",
                             tint = if (isMuted) SquadRed else SquadTextPrimary
                         )
                     }
                     IconButton(onClick = { }) {
-                        Icon(Icons.Default.Headset, contentDescription = "Deafen", tint = SquadTextPrimary)
+                        Icon(Icons.Default.Headset, contentDescription = "Kulaklığı Kapat", tint = SquadTextPrimary)
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(containerColor = SquadSurfaceDark)
@@ -89,7 +89,7 @@ fun RoomScreen(
                 messages = messages,
                 modifier = Modifier.weight(1f),
                 onSendMessage = { content ->
-                    viewModel.sendMessage(roomId, "You", content)
+                    viewModel.sendMessage(roomId, "Sen", content)
                 }
             )
         }
@@ -108,13 +108,13 @@ fun MediaPlayerMock(room: SyncRoom?) {
         Column(horizontalAlignment = Alignment.CenterHorizontally) {
             Icon(
                 imageVector = Icons.Default.PlayArrow,
-                contentDescription = "Play",
+                contentDescription = "Oynat",
                 tint = Color.White,
                 modifier = Modifier.size(64.dp)
             )
             Spacer(modifier = Modifier.height(8.dp))
             Text(
-                text = "Simulated YouTube Player - Waiting for Sync",
+                text = "Simüle Edilmiş YouTube Oynatıcı - Senkronizasyon Bekleniyor",
                 color = Color.White,
                 fontSize = 14.sp
             )
@@ -146,12 +146,12 @@ fun VoiceChannelSection() {
             .background(SquadSurfaceLayer)
             .padding(12.dp)
     ) {
-        Text("Voice Channel (3 Connected)", color = SquadTextSecondary, fontSize = 12.sp, fontWeight = FontWeight.Bold)
+        Text("Ses Kanalı (3 Bağlı)", color = SquadTextSecondary, fontSize = 12.sp, fontWeight = FontWeight.Bold)
         Spacer(modifier = Modifier.height(8.dp))
         LazyRow(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
             items(3) { index ->
                 UserAvatar(
-                    name = listOf("You", "Alice", "Bob")[index],
+                    name = listOf("Sen", "Gizem", "Emre")[index],
                     isSpeaking = index == 1
                 )
             }
@@ -166,7 +166,7 @@ fun UserAvatar(name: String, isSpeaking: Boolean) {
             modifier = Modifier
                 .size(48.dp)
                 .clip(CircleShape)
-                .background(if (name == "You") SquadPrimary else SquadHover),
+                .background(if (name == "Sen") SquadPrimary else SquadHover),
             contentAlignment = Alignment.Center
         ) {
             Text(name.take(1), color = Color.White, fontSize = 20.sp, fontWeight = FontWeight.Bold)
@@ -229,7 +229,7 @@ fun ChatSection(
             OutlinedTextField(
                 value = text,
                 onValueChange = { text = it },
-                placeholder = { Text("Message room...", color = SquadTextSecondary) },
+                placeholder = { Text("Odaya mesaj gönder...", color = SquadTextSecondary) },
                 colors = OutlinedTextFieldDefaults.colors(
                     focusedBorderColor = Color.Transparent,
                     unfocusedBorderColor = Color.Transparent,
@@ -255,7 +255,7 @@ fun ChatSection(
                     }
                 }
             ) {
-                Icon(Icons.AutoMirrored.Filled.Send, contentDescription = "Send", tint = SquadPrimary)
+                Icon(Icons.AutoMirrored.Filled.Send, contentDescription = "Gönder", tint = SquadPrimary)
             }
         }
     }
@@ -271,7 +271,7 @@ fun ChatMessageItem(message: ChatMessage) {
             modifier = Modifier
                 .size(40.dp)
                 .clip(CircleShape)
-                .background(if (message.username == "You") SquadPrimary else SquadHover),
+                .background(if (message.username == "Sen") SquadPrimary else SquadHover),
             contentAlignment = Alignment.Center
         ) {
             Text(message.username.take(1), color = Color.White, fontWeight = FontWeight.Bold)

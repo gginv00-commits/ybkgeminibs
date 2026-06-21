@@ -39,11 +39,11 @@ fun DashboardScreen(
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("Active Rooms", fontWeight = FontWeight.Bold, color = SquadTextPrimary) },
+                title = { Text("Aktif Odalar", fontWeight = FontWeight.Bold, color = SquadTextPrimary) },
                 actions = {
                     if (role == "Admin") {
                         IconButton(onClick = onNavigateToAdmin) {
-                            Icon(Icons.Default.AdminPanelSettings, contentDescription = "Admin Area", tint = SquadPrimary)
+                            Icon(Icons.Default.AdminPanelSettings, contentDescription = "Yönetici Paneli", tint = SquadPrimary)
                         }
                     }
                 },
@@ -58,14 +58,14 @@ fun DashboardScreen(
                 containerColor = SquadPrimary,
                 contentColor = Color.Black
             ) {
-                Icon(Icons.Default.Add, contentDescription = "Create Room")
+                Icon(Icons.Default.Add, contentDescription = "Oda Oluştur")
             }
         },
         containerColor = SquadBackground
     ) { innerPadding ->
         if (rooms.isEmpty()) {
             Box(modifier = Modifier.fillMaxSize().padding(innerPadding), contentAlignment = Alignment.Center) {
-                Text("No active rooms. Create one to get started!", color = SquadTextSecondary)
+                Text("Aktif oda bulunmuyor. Başlamak için bir tane oluşturun!", color = SquadTextSecondary)
             }
         } else {
             LazyColumn(
@@ -124,9 +124,9 @@ fun RoomCard(room: SyncRoom, onClick: () -> Unit) {
             Text(room.name, color = SquadTextPrimary, fontWeight = FontWeight.Bold, fontSize = 16.sp)
             Spacer(modifier = Modifier.height(4.dp))
             Row(verticalAlignment = Alignment.CenterVertically) {
-                Icon(Icons.Default.Mic, contentDescription = "Active Users", tint = SquadGreen, modifier = Modifier.size(14.dp))
+                Icon(Icons.Default.Mic, contentDescription = "Aktif Kullanıcılar", tint = SquadGreen, modifier = Modifier.size(14.dp))
                 Spacer(modifier = Modifier.width(4.dp))
-                Text("${room.activeUsers} in voice", color = SquadTextSecondary, fontSize = 12.sp)
+                Text("${room.activeUsers} kişi seste", color = SquadTextSecondary, fontSize = 12.sp)
             }
         }
         Button(
@@ -135,7 +135,7 @@ fun RoomCard(room: SyncRoom, onClick: () -> Unit) {
             shape = RoundedCornerShape(16.dp),
             contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp)
         ) {
-            Text("Join", fontWeight = FontWeight.SemiBold, color = Color.Black)
+            Text("Katıl", fontWeight = FontWeight.SemiBold, color = Color.Black)
         }
     }
 }
@@ -153,13 +153,13 @@ fun CreateRoomDialog(
         containerColor = SquadSurfaceLayer,
         titleContentColor = SquadTextPrimary,
         textContentColor = SquadTextSecondary,
-        title = { Text("Create New Room", fontWeight = FontWeight.Bold) },
+        title = { Text("Yeni Oda Oluştur", fontWeight = FontWeight.Bold) },
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
                 OutlinedTextField(
                     value = roomName,
                     onValueChange = { roomName = it },
-                    label = { Text("Room Name") },
+                    label = { Text("Oda Adı") },
                     colors = OutlinedTextFieldDefaults.colors(
                         focusedBorderColor = SquadPrimary,
                         unfocusedBorderColor = SquadHover,
@@ -175,7 +175,7 @@ fun CreateRoomDialog(
                         colors = SwitchDefaults.colors(checkedThumbColor = SquadPrimary, checkedTrackColor = SquadHover)
                     )
                     Spacer(modifier = Modifier.width(16.dp))
-                    Text(if (isPrivate) "Private Room" else "Public Room")
+                    Text(if (isPrivate) "Gizli Oda" else "Açık Oda")
                 }
             }
         },
@@ -188,12 +188,12 @@ fun CreateRoomDialog(
                 },
                 colors = ButtonDefaults.buttonColors(containerColor = SquadPrimary)
             ) {
-                Text("Create", color = Color.Black)
+                Text("Oluştur", color = Color.Black)
             }
         },
         dismissButton = {
             TextButton(onClick = onDismiss) {
-                Text("Cancel", color = SquadTextSecondary)
+                Text("İptal", color = SquadTextSecondary)
             }
         }
     )
