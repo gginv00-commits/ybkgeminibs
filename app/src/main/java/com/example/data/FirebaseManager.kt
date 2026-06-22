@@ -36,10 +36,21 @@ class FirebaseManager private constructor(context: Context) {
                 } else {
                     FirebaseApp.getInstance()
                 }
-                database = FirebaseDatabase.getInstance(app)
-                Log.d("FirebaseManager", "Firebase Realtime Database initialized successfully at: $dbUrl")
+                
+                if (app != null) {
+                    database = FirebaseDatabase.getInstance(app)
+                    try {
+                        database?.setPersistenceEnabled(true)
+                        Log.d("FirebaseManager", "Firebase offline persistence enabled")
+                    } catch (e: Exception) {
+                        Log.w("FirebaseManager", "Could not enable persistence: ${e.message}")
+                    }
+                    Log.d("FirebaseManager", "Firebase Realtime Database initialized successfully at: $dbUrl")
+                } else {
+                    Log.e("FirebaseManager", "Failed to initialize FirebaseApp")
+                }
             } catch (e: Exception) {
-                Log.e("FirebaseManager", "Error initializing Firebase options: ${e.message}", e)
+                Log.e("FirebaseManager", "Error initializing Firebase: ${e.message}", e)
             }
         } else {
             Log.w("FirebaseManager", "Firebase is not fully configured. Starting helper in Simulation Mode.")
