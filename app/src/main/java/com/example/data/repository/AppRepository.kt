@@ -12,12 +12,26 @@ class AppRepository(private val dao: AppDao) {
 
     fun getRoomById(roomId: Int): Flow<SyncRoom?> = dao.getRoomById(roomId)
 
-    suspend fun createRoom(name: String, type: String): Long {
-        return dao.insertRoom(SyncRoom(name = name, type = type))
+    suspend fun getRoomByCode(roomCode: String): SyncRoom? = dao.getRoomByCode(roomCode)
+
+    suspend fun createRoom(name: String, type: String, password: String?, isLocked: Boolean): Long {
+        return dao.insertRoom(SyncRoom(name = name, type = type, password = password, isLocked = isLocked))
+    }
+
+    suspend fun insertRoomDirect(room: SyncRoom): Long {
+        return dao.insertRoom(room)
     }
 
     fun getMessagesForRoom(roomId: Int): Flow<List<ChatMessage>> {
         return dao.getMessagesForRoom(roomId)
+    }
+
+    suspend fun getMessageCount(roomId: Int, username: String, content: String, timestamp: Long): Int {
+        return dao.getMessageCount(roomId, username, content, timestamp)
+    }
+
+    suspend fun insertMessageDirect(roomId: Int, username: String, content: String, timestamp: Long): Long {
+        return dao.insertMessage(ChatMessage(roomId = roomId, username = username, content = content, timestamp = timestamp))
     }
 
     suspend fun sendMessage(roomId: Int, username: String, content: String) {
@@ -30,6 +44,10 @@ class AppRepository(private val dao: AppDao) {
 
     suspend fun setBanStatus(userId: Int, isBanned: Boolean) {
         dao.updateUserBanStatus(userId, isBanned)
+    }
+
+    suspend fun updateRoomNowPlaying(roomId: Int, youtubeId: String?) {
+        dao.updateRoomNowPlaying(roomId, youtubeId)
     }
 
     suspend fun deleteRoom(roomId: Int) {

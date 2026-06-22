@@ -17,11 +17,17 @@ interface AppDao {
     @Query("SELECT * FROM rooms WHERE id = :roomId LIMIT 1")
     fun getRoomById(roomId: Int): Flow<SyncRoom?>
 
+    @Query("SELECT * FROM rooms WHERE roomCode = :roomCode LIMIT 1")
+    suspend fun getRoomByCode(roomCode: String): SyncRoom?
+
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertRoom(room: SyncRoom): Long
 
     @Query("SELECT * FROM messages WHERE roomId = :roomId ORDER BY timestamp ASC")
     fun getMessagesForRoom(roomId: Int): Flow<List<ChatMessage>>
+
+    @Query("SELECT COUNT(*) FROM messages WHERE roomId = :roomId AND username = :username AND content = :content AND timestamp = :timestamp")
+    suspend fun getMessageCount(roomId: Int, username: String, content: String, timestamp: Long): Int
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertMessage(message: ChatMessage): Long
@@ -34,6 +40,9 @@ interface AppDao {
 
     @Query("UPDATE users SET isBanned = :isBanned WHERE id = :userId")
     suspend fun updateUserBanStatus(userId: Int, isBanned: Boolean)
+
+    @Query("UPDATE rooms SET nowPlaying = :youtubeId WHERE id = :roomId")
+    suspend fun updateRoomNowPlaying(roomId: Int, youtubeId: String?)
 
     @Query("DELETE FROM rooms WHERE id = :roomId")
     suspend fun deleteRoom(roomId: Int)

@@ -84,8 +84,8 @@ fun DashboardScreen(
         if (showCreateDialog) {
             CreateRoomDialog(
                 onDismiss = { showCreateDialog = false },
-                onCreate = { name, type ->
-                    viewModel.createRoom(name, type) { newRoomId ->
+                onCreate = { name, type, password, isLocked ->
+                    viewModel.createRoom(name, type, password, isLocked) { newRoomId ->
                         showCreateDialog = false
                         onNavigateToRoom(newRoomId)
                     }
@@ -143,10 +143,12 @@ fun RoomCard(room: SyncRoom, onClick: () -> Unit) {
 @Composable
 fun CreateRoomDialog(
     onDismiss: () -> Unit,
-    onCreate: (String, String) -> Unit
+    onCreate: (name: String, type: String, password: String?, isLocked: Boolean) -> Unit
 ) {
     var roomName by remember { mutableStateOf("") }
     var isPrivate by remember { mutableStateOf(false) }
+    var password by remember { mutableStateOf("") }
+    var isLocked by remember { mutableStateOf(false) }
 
     AlertDialog(
         onDismissRequest = onDismiss,
@@ -177,13 +179,38 @@ fun CreateRoomDialog(
                     Spacer(modifier = Modifier.width(16.dp))
                     Text(if (isPrivate) "Gizli Oda" else "Açık Oda")
                 }
+                
+                if (isPrivate) {
+                    OutlinedTextField(
+                        value = password,
+                        onValueChange = { password = it },
+                        label = { Text("Şifre") },
+                        colors = OutlinedTextFieldDefaults.colors(
+                            focusedBorderColor = SquadPrimary,
+                            unfocusedBorderColor = SquadHover,
+                            focusedTextColor = SquadTextPrimary,
+                            unfocusedTextColor = SquadTextPrimary
+                        ),
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                    
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Switch(
+                            checked = isLocked,
+                            onCheckedChange = { isLocked = it },
+                            colors = SwitchDefaults.colors(checkedThumbColor = SquadPrimary, checkedTrackColor = SquadHover)
+                        )
+                        Spacer(modifier = Modifier.width(16.dp))
+                        Text(if (isLocked) "Odayı Kilitli Başlat" else "Oda Kilitsiz")
+                    }
+                }
             }
         },
         confirmButton = {
             Button(
                 onClick = {
                     if (roomName.isNotBlank()) {
-                        onCreate(roomName, if (isPrivate) "Private" else "Public")
+                        onCreate(roomName, if (isPrivate) "Private" else "Public", if (isPrivate && password.isNotBlank()) password else null, if (isPrivate) isLocked else false)
                     }
                 },
                 colors = ButtonDefaults.buttonColors(containerColor = SquadPrimary)

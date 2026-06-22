@@ -1,6 +1,7 @@
 package com.example
 
 import android.os.Bundle
+import android.content.Intent
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
@@ -30,6 +31,7 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
+        handleIntent(intent)
         setContent {
             AppTheme {
                 Surface(
@@ -44,8 +46,9 @@ class MainActivity : ComponentActivity() {
                     ) {
                         composable<LandingRoute> {
                             LandingScreen(
-                                onNavigateToDashboard = {
-                                    navController.navigate(DashboardRoute) {
+                                viewModel = viewModel,
+                                onNavigateToRoom = { roomId ->
+                                    navController.navigate(RoomRoute(roomId)) {
                                         popUpTo(LandingRoute) { inclusive = true }
                                     }
                                 }
@@ -68,7 +71,9 @@ class MainActivity : ComponentActivity() {
                                 roomId = route.roomId,
                                 viewModel = viewModel,
                                 onNavigateBack = {
-                                    navController.popBackStack()
+                                    navController.navigate(LandingRoute) {
+                                        popUpTo(0) { inclusive = true }
+                                    }
                                 }
                             )
                         }
@@ -82,6 +87,21 @@ class MainActivity : ComponentActivity() {
                         }
                     }
                 }
+            }
+        }
+    }
+
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        setIntent(intent)
+        handleIntent(intent)
+    }
+
+    private fun handleIntent(intent: Intent?) {
+        if (intent != null && intent.action == Intent.ACTION_SEND) {
+            val text = intent.getStringExtra(Intent.EXTRA_TEXT)
+            if (!text.isNullOrBlank()) {
+                viewModel.handleIncomingShare(text)
             }
         }
     }
