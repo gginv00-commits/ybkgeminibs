@@ -1,5 +1,8 @@
 package com.example.ui.screens
 
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
+import android.net.Uri
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.activity.compose.BackHandler
@@ -12,6 +15,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.Block
 import androidx.compose.material3.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
@@ -19,6 +23,7 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Clear
 import androidx.compose.material.icons.filled.MusicNote
+import androidx.compose.material.icons.filled.Public
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -173,8 +178,32 @@ fun RoomScreen(
     val currentUsername by viewModel.currentUsername.collectAsStateWithLifecycle()
     val roomNowPlaying by viewModel.roomNowPlaying.collectAsStateWithLifecycle()
     val sharedIncomingMedia by viewModel.sharedIncomingMedia.collectAsStateWithLifecycle()
+    val savedSongsList by viewModel.savedSongs.collectAsStateWithLifecycle()
+    val playbackState by viewModel.playbackState.collectAsStateWithLifecycle()
+    val playbackTime by viewModel.playbackTime.collectAsStateWithLifecycle()
+    val playbackDuration by viewModel.playbackDuration.collectAsStateWithLifecycle()
+    val playbackVersion by viewModel.playbackVersion.collectAsStateWithLifecycle()
+    val isRoomCreator = (currentRoomCreator == null) || (currentRoomCreator == currentUsername)
     val context = LocalContext.current
     var isMuted by remember { mutableStateOf(true) }
+    
+    var showMaintenanceAnnouncement by remember { mutableStateOf(true) }
+    val kickedOrBanned by viewModel.kickedOrBannedEvent.collectAsStateWithLifecycle()
+    
+    LaunchedEffect(kickedOrBanned) {
+        kickedOrBanned?.let { reason ->
+            if (reason == "BAN") {
+                android.widget.Toast.makeText(context, "Bu odadan yasaklandınız!", android.widget.Toast.LENGTH_LONG).show()
+            } else {
+                android.widget.Toast.makeText(context, "Odadan atıldınız!", android.widget.Toast.LENGTH_LONG).show()
+            }
+            viewModel.kickedOrBannedEvent.value = null
+            onNavigateBack()
+        }
+    }
+    
+    var mediaVolume by remember { mutableStateOf(1f) }
+    var voiceVolume by remember { mutableStateOf(1f) }
     
     // Push-to-Talk (Bas-Konuş) State
     var pttModeEnabled by remember { mutableStateOf(false) }
@@ -192,6 +221,15 @@ fun RoomScreen(
     LaunchedEffect(isMicEnabled) {
         viewModel.webrtcManager.toggleMicrophone(isMicEnabled)
         viewModel.updateUserPresence(isMuted = !isMicEnabled, isSpeaking = false)
+    }
+
+    val isBroadcastingMyBeamTop = roomNowPlaying?.startsWith("squad_beam:$currentUsername") == true
+    LaunchedEffect(isBroadcastingMyBeamTop) {
+        viewModel.webrtcManager.setMusicSharingMode(isBroadcastingMyBeamTop)
+    }
+
+    LaunchedEffect(voiceVolume) {
+        viewModel.webrtcManager.setVoiceVolume(voiceVolume)
     }
 
     LaunchedEffect(pttModeEnabled) {
@@ -356,6 +394,43 @@ fun RoomScreen(
                                 Box(modifier = Modifier.size(6.dp).background(if (!member.isMuted) SquadGreen else SquadTextSecondary, CircleShape))
                                 Spacer(modifier = Modifier.width(6.dp))
                                 Text(if (!member.isMuted) "ACTIVE" else "MUTED", color = SquadTextSecondary, fontSize = 10.sp, letterSpacing = 1.sp)
+                            }
+
+                            if (isRoomCreator && member.name != currentUsername) {
+                                Spacer(modifier = Modifier.width(12.dp))
+                                IconButton(
+                                    onClick = {
+                                        val code = viewModel.activeRoomCode
+                                        if (code != null) {
+                                            viewModel.kickUser(code, member.name)
+                                        }
+                                    },
+                                    modifier = Modifier.size(28.dp)
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Default.Close,
+                                        contentDescription = "At",
+                                        tint = SquadRed,
+                                        modifier = Modifier.size(18.dp)
+                                    )
+                                }
+                                Spacer(modifier = Modifier.width(4.dp))
+                                IconButton(
+                                    onClick = {
+                                        val code = viewModel.activeRoomCode
+                                        if (code != null) {
+                                            viewModel.banUser(code, member.name)
+                                        }
+                                    },
+                                    modifier = Modifier.size(28.dp)
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Default.Block,
+                                        contentDescription = "Yasakla",
+                                        tint = SquadRed,
+                                        modifier = Modifier.size(18.dp)
+                                    )
+                                }
                             }
                         }
                     }
@@ -540,24 +615,82 @@ fun RoomScreen(
                 
                 Spacer(modifier = Modifier.height(16.dp))
 
-                // YT SYNC PROTOCOL
-                Column {
+                // VOLUME CONTROL PANEL
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .background(SquadSurfaceDark, RoundedCornerShape(8.dp))
+                        .border(1.dp, SquadHover, RoundedCornerShape(8.dp))
+                        .padding(16.dp)
+                ) {
                     Text(
-                        "// SQUAD SEYİR VE SES SENKRONİZASYON PROTOKOLÜ (S4)",
+                        "KİŞİSEL SES SEVİYESİ",
                         color = SquadTextSecondary,
-                        fontSize = 10.sp,
-                        letterSpacing = 2.sp,
-                        modifier = Modifier.padding(bottom = 8.dp)
+                        fontSize = 11.sp,
+                        fontWeight = FontWeight.Bold,
+                        letterSpacing = 1.sp,
+                        modifier = Modifier.padding(bottom = 12.dp)
+                    )
+
+                    Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth()) {
+                        Text("Medya (Müzik/Video)", color = Color.White, fontSize = 11.sp, modifier = Modifier.weight(1f))
+                        Text("${(mediaVolume * 100).toInt()}%", color = SquadPrimary, fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                    }
+                    androidx.compose.material3.Slider(
+                        value = mediaVolume,
+                        onValueChange = { mediaVolume = it },
+                        valueRange = 0f..1f,
+                        colors = androidx.compose.material3.SliderDefaults.colors(
+                            thumbColor = SquadPrimary,
+                            activeTrackColor = SquadPrimary,
+                            inactiveTrackColor = SquadHover
+                        )
                     )
                     
+                    Spacer(modifier = Modifier.height(8.dp))
+
+                    Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth()) {
+                        Text("Kullanıcılar (Sesli Sohbet)", color = Color.White, fontSize = 11.sp, modifier = Modifier.weight(1f))
+                        Text("${(voiceVolume * 100).toInt()}%", color = SquadPrimary, fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                    }
+                    androidx.compose.material3.Slider(
+                        value = voiceVolume,
+                        onValueChange = { voiceVolume = it },
+                        valueRange = 0f..1f,
+                        colors = androidx.compose.material3.SliderDefaults.colors(
+                            thumbColor = SquadPrimary,
+                            activeTrackColor = SquadPrimary,
+                            inactiveTrackColor = SquadHover
+                        )
+                    )
+                }
+                
+                Spacer(modifier = Modifier.height(16.dp))
+
+                // YT SYNC PROTOCOL
+                Column(
+                    modifier = if (isRoomCreator) Modifier else Modifier.size(0.dp)
+                ) {
+                    if (isRoomCreator) {
+                        Text(
+                            "// SQUAD SEYİR VE SES SENKRONİZASYON PROTOKOLÜ (S4)",
+                            color = SquadTextSecondary,
+                            fontSize = 10.sp,
+                            letterSpacing = 2.sp,
+                            modifier = Modifier.padding(bottom = 8.dp)
+                        )
+                    }
+                    
                     Column(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .background(SquadSurfaceDark, RoundedCornerShape(8.dp))
-                            .border(1.dp, SquadHover, RoundedCornerShape(8.dp))
+                        modifier = if (isRoomCreator) {
+                            Modifier
+                                .fillMaxWidth()
+                                .background(SquadSurfaceDark, RoundedCornerShape(8.dp))
+                                .border(1.dp, SquadHover, RoundedCornerShape(8.dp))
+                        } else {
+                            Modifier.size(0.dp)
+                        }
                     ) {
-                        val isRoomCreator = (currentRoomCreator == null) || (currentRoomCreator == currentUsername)
-                        
                         var selectedTab by remember { mutableStateOf("youtube") }
                         
                         val playingNow = roomNowPlaying
@@ -676,18 +809,31 @@ fun RoomScreen(
                                 }
                                 "squad_music" -> {
                                     var searchQuery by remember { mutableStateOf("") }
-                                    var selectedCategory by remember { mutableStateOf("Tümü") }
                                     
-                                    val allSongs = SQUAD_SONG_LIBRARY + customSongs
-                                    val categories = listOf("Tümü") + allSongs.map { it.category }.distinct()
-                                    
-                                    val filteredSongs = allSongs.filter { song ->
-                                        (selectedCategory == "Tümü" || song.category == selectedCategory) &&
-                                        (song.title.contains(searchQuery, ignoreCase = true) || 
-                                         song.artist.contains(searchQuery, ignoreCase = true) ||
-                                         song.category.contains(searchQuery, ignoreCase = true))
+                                    val filteredSongs = savedSongsList.filter { song ->
+                                        song.title.contains(searchQuery, ignoreCase = true) || 
+                                        song.artist.contains(searchQuery, ignoreCase = true)
                                     }
                                     
+                                    var isAddFormExpanded by remember { mutableStateOf(false) }
+                                    var newSongTitle by remember { mutableStateOf("") }
+                                    var newSongArtist by remember { mutableStateOf("") }
+
+                                    val filePickerLauncher = rememberLauncherForActivityResult(
+                                        contract = ActivityResultContracts.GetContent()
+                                    ) { uri: Uri? ->
+                                        if (uri != null) {
+                                            val cleanTitle = if (newSongTitle.trim().isEmpty()) "Cihaz Şarkısı" else newSongTitle.trim()
+                                            val cleanArtist = if (newSongArtist.trim().isEmpty()) "Bilinmeyen Sanatçı" else newSongArtist.trim()
+                                            viewModel.saveSongFromUri(cleanTitle, cleanArtist, uri)
+                                            
+                                            newSongTitle = ""
+                                            newSongArtist = ""
+                                            isAddFormExpanded = false
+                                            android.widget.Toast.makeText(context, "Şarkı başarıyla MP3 olarak kaydedildi!", android.widget.Toast.LENGTH_SHORT).show()
+                                        }
+                                    }
+
                                     Column(
                                         modifier = Modifier
                                             .fillMaxWidth()
@@ -695,7 +841,7 @@ fun RoomScreen(
                                         verticalArrangement = Arrangement.spacedBy(8.dp)
                                     ) {
                                         Text(
-                                            text = "🎵 GRUBUNUZLA MÜZİK KEYFİ (GELİŞTİRİCİ ARŞİVİ)",
+                                            text = "🎵 SQUAD ORTAK MÜZİK ARŞİVİ",
                                             color = SquadPrimary,
                                             fontSize = 11.sp,
                                             fontWeight = FontWeight.Bold,
@@ -740,39 +886,12 @@ fun RoomScreen(
                                             maxLines = 1,
                                             singleLine = true
                                         )
-                                        
-                                        // Category Pills
-                                        LazyRow(
-                                            horizontalArrangement = Arrangement.spacedBy(6.dp),
-                                            modifier = Modifier.fillMaxWidth()
-                                        ) {
-                                            items(categories) { category ->
-                                                val isCatSelected = selectedCategory == category
-                                                Box(
-                                                    modifier = Modifier
-                                                        .background(
-                                                            color = if (isCatSelected) SquadPrimary else SquadBackground,
-                                                            shape = RoundedCornerShape(12.dp)
-                                                        )
-                                                        .border(1.dp, if (isCatSelected) SquadPrimary else SquadHover, RoundedCornerShape(12.dp))
-                                                        .clickable { selectedCategory = category }
-                                                        .padding(horizontal = 10.dp, vertical = 4.dp)
-                                                ) {
-                                                    Text(
-                                                        text = category,
-                                                        color = if (isCatSelected) Color.Black else Color.White,
-                                                        fontSize = 10.sp,
-                                                        fontWeight = FontWeight.Bold
-                                                    )
-                                                }
-                                            }
-                                        }
-                                        
+
                                         // Song List
                                         LazyColumn(
                                             modifier = Modifier
                                                 .fillMaxWidth()
-                                                .heightIn(max = 180.dp),
+                                                .heightIn(max = 240.dp),
                                             verticalArrangement = Arrangement.spacedBy(6.dp)
                                         ) {
                                             if (filteredSongs.isEmpty()) {
@@ -792,7 +911,9 @@ fun RoomScreen(
                                                 }
                                             } else {
                                                 items(filteredSongs) { song ->
-                                                    val isCurrentlyPlayingThis = playingNow == "mp3:${song.title}|${song.url}"
+                                                    val isCurrentlyPlayingThis = playingNow == "mp3:${song.title}|${song.filePath}"
+                                                    val isRoomOwner = (currentRoomCreator == null) || (currentRoomCreator == currentUsername)
+                                                    
                                                     Row(
                                                         modifier = Modifier
                                                             .fillMaxWidth()
@@ -806,8 +927,28 @@ fun RoomScreen(
                                                                 RoundedCornerShape(6.dp)
                                                             )
                                                             .clickable {
-                                                                viewModel.updateRoomNowPlaying(roomId, "mp3:${song.title}|${song.url}")
-                                                                android.widget.Toast.makeText(context, "${song.title} başlatıldı!", android.widget.Toast.LENGTH_SHORT).show()
+                                                                if (isRoomOwner) {
+                                                                    if (song.isSystem && song.filePath.startsWith("http")) {
+                                                                        android.widget.Toast.makeText(context, "Şarkı indiriliyor... Lütfen bekleyin.", android.widget.Toast.LENGTH_SHORT).show()
+                                                                        viewModel.downloadAndSaveDefaultSong(song) { localPath ->
+                                                                            if (localPath != null) {
+                                                                                viewModel.updateRoomNowPlaying(roomId, "mp3:${song.title}|$localPath")
+                                                                                val rCode_807 = room?.roomCode ?: ""
+                                                                                viewModel.shareLocalMp3File(rCode_807, song.title, song.artist, localPath)
+                                                                                android.widget.Toast.makeText(context, "${song.title} indirildi ve yayına eklendi!", android.widget.Toast.LENGTH_SHORT).show()
+                                                                            } else {
+                                                                                android.widget.Toast.makeText(context, "İndirme başarısız oldu!", android.widget.Toast.LENGTH_SHORT).show()
+                                                                            }
+                                                                        }
+                                                                    } else {
+                                                                        viewModel.updateRoomNowPlaying(roomId, "mp3:${song.title}|${song.filePath}")
+                                                                        val rCode_815 = room?.roomCode ?: ""
+                                                                        viewModel.shareLocalMp3File(rCode_815, song.title, song.artist, song.filePath)
+                                                                        android.widget.Toast.makeText(context, "${song.title} başlatıldı!", android.widget.Toast.LENGTH_SHORT).show()
+                                                                    }
+                                                                } else {
+                                                                    android.widget.Toast.makeText(context, "Yalnızca oda sahibi veya yöneticisi şarkı başlatabilir!", android.widget.Toast.LENGTH_SHORT).show()
+                                                                }
                                                             }
                                                             .padding(horizontal = 10.dp, vertical = 8.dp),
                                                         verticalAlignment = Alignment.CenterVertically,
@@ -824,15 +965,34 @@ fun RoomScreen(
                                                                 modifier = Modifier.size(16.dp)
                                                             )
                                                             Spacer(modifier = Modifier.width(8.dp))
-                                                            Column {
-                                                                Text(
-                                                                    text = song.title,
-                                                                    color = Color.White,
-                                                                    fontSize = 11.sp,
-                                                                    fontWeight = FontWeight.Bold,
-                                                                    maxLines = 1,
-                                                                    overflow = TextOverflow.Ellipsis
-                                                                )
+                                                            Column(modifier = Modifier.weight(1f)) {
+                                                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                                                    Text(
+                                                                        text = song.title,
+                                                                        color = Color.White,
+                                                                        fontSize = 11.sp,
+                                                                        fontWeight = FontWeight.Bold,
+                                                                        maxLines = 1,
+                                                                        overflow = TextOverflow.Ellipsis,
+                                                                        modifier = Modifier.weight(1f, fill = false)
+                                                                    )
+                                                                    Spacer(modifier = Modifier.width(4.dp))
+                                                                    Box(
+                                                                        modifier = Modifier
+                                                                            .background(
+                                                                                if (song.isSystem) SquadHover.copy(alpha = 0.5f) else SquadPrimary.copy(alpha = 0.2f),
+                                                                                RoundedCornerShape(3.dp)
+                                                                            )
+                                                                            .padding(horizontal = 4.dp, vertical = 1.dp)
+                                                                    ) {
+                                                                        Text(
+                                                                            text = if (song.isSystem) "HAZIR KİT" else "CİHAZDAN MP3",
+                                                                            color = if (song.isSystem) Color.White.copy(alpha = 0.8f) else SquadPrimary,
+                                                                            fontSize = 7.sp,
+                                                                            fontWeight = FontWeight.Bold
+                                                                        )
+                                                                    }
+                                                                }
                                                                 Text(
                                                                     text = song.artist,
                                                                     color = SquadTextSecondary,
@@ -843,34 +1003,75 @@ fun RoomScreen(
                                                             }
                                                         }
                                                         
-                                                        Box(
-                                                            modifier = Modifier
-                                                                .background(
-                                                                    if (isCurrentlyPlayingThis) SquadPrimary else SquadHover,
-                                                                    RoundedCornerShape(4.dp)
-                                                                )
-                                                                .padding(horizontal = 8.dp, vertical = 3.dp)
+                                                        Row(
+                                                            verticalAlignment = Alignment.CenterVertically,
+                                                            horizontalArrangement = Arrangement.spacedBy(4.dp)
                                                         ) {
-                                                            Text(
-                                                                text = if (isCurrentlyPlayingThis) "ÇALIYOR" else "OYNAT",
-                                                                color = if (isCurrentlyPlayingThis) Color.Black else Color.White,
-                                                                fontSize = 8.sp,
-                                                                fontWeight = FontWeight.Bold
-                                                            )
+                                                            // Share button (Synchronizes MP3 files explicitly with peers)
+                                                            if (isRoomOwner) {
+                                                                IconButton(
+                                                                    onClick = {
+                                                                        if (song.isSystem && song.filePath.startsWith("http")) {
+                                                                            android.widget.Toast.makeText(context, "Önce parçayı oynatarak indirmelisiniz!", android.widget.Toast.LENGTH_SHORT).show()
+                                                                        } else {
+                                                                            val rCode_886 = room?.roomCode ?: ""
+                                                                            viewModel.shareLocalMp3File(rCode_886, song.title, song.artist, song.filePath)
+                                                                            android.widget.Toast.makeText(context, "Şarkı senkronizasyon paketi odadaki diğer kullanıcılara gönderildi!", android.widget.Toast.LENGTH_SHORT).show()
+                                                                        }
+                                                                    },
+                                                                    modifier = Modifier.size(24.dp)
+                                                                ) {
+                                                                    Icon(
+                                                                        imageVector = Icons.Default.Public,
+                                                                        contentDescription = "Paylaş",
+                                                                        tint = SquadPrimary,
+                                                                        modifier = Modifier.size(14.dp)
+                                                                    )
+                                                                }
+                                                            }
+
+                                                            // Delete button
+                                                            if (!song.isSystem) {
+                                                                IconButton(
+                                                                    onClick = {
+                                                                        viewModel.deleteSavedSong(song.id)
+                                                                        android.widget.Toast.makeText(context, "Şarkı kütüphaneden silindi.", android.widget.Toast.LENGTH_SHORT).show()
+                                                                    },
+                                                                    modifier = Modifier.size(24.dp)
+                                                                ) {
+                                                                    Icon(
+                                                                        imageVector = Icons.Default.Close,
+                                                                        contentDescription = "Sil",
+                                                                        tint = SquadRed,
+                                                                        modifier = Modifier.size(14.dp)
+                                                                    )
+                                                                }
+                                                            }
+
+                                                            Box(
+                                                                modifier = Modifier
+                                                                    .background(
+                                                                        if (isCurrentlyPlayingThis) SquadPrimary else SquadHover,
+                                                                        RoundedCornerShape(4.dp)
+                                                                    )
+                                                                    .padding(horizontal = 8.dp, vertical = 3.dp)
+                                                            ) {
+                                                                Text(
+                                                                    text = if (isCurrentlyPlayingThis) "ÇALIYOR" else "OYNAT",
+                                                                    color = if (isCurrentlyPlayingThis) Color.Black else Color.White,
+                                                                    fontSize = 8.sp,
+                                                                    fontWeight = FontWeight.Bold
+                                                                )
+                                                            }
                                                         }
                                                     }
                                                 }
                                             }
                                         }
-
+                                        
                                         Spacer(modifier = Modifier.height(4.dp))
-
+                                        
                                         // Custom song adding form
-                                        var isAddFormExpanded by remember { mutableStateOf(false) }
-                                        var newSongTitle by remember { mutableStateOf("") }
-                                        var newSongArtist by remember { mutableStateOf("") }
-                                        var newSongUrl by remember { mutableStateOf("") }
-
                                         Card(
                                             modifier = Modifier.fillMaxWidth(),
                                             colors = CardDefaults.cardColors(containerColor = SquadBackground.copy(alpha = 0.6f)),
@@ -894,7 +1095,7 @@ fun RoomScreen(
                                                         )
                                                         Spacer(modifier = Modifier.width(6.dp))
                                                         Text(
-                                                            text = "➕ KENDİ MP3 ŞARKINI EKLE (URL)",
+                                                            text = "➕ CİHAZINDAN YENİ MP3 ŞARKISI EKLE",
                                                             color = Color.White,
                                                             fontSize = 10.sp,
                                                             fontWeight = FontWeight.Bold
@@ -907,7 +1108,7 @@ fun RoomScreen(
                                                         fontWeight = FontWeight.Bold
                                                     )
                                                 }
-
+                                                
                                                 if (isAddFormExpanded) {
                                                     Spacer(modifier = Modifier.height(8.dp))
                                                     OutlinedTextField(
@@ -943,40 +1144,15 @@ fun RoomScreen(
                                                         textStyle = androidx.compose.ui.text.TextStyle(fontSize = 11.sp),
                                                         singleLine = true
                                                     )
-                                                    Spacer(modifier = Modifier.height(4.dp))
-                                                    OutlinedTextField(
-                                                        value = newSongUrl,
-                                                        onValueChange = { newSongUrl = it },
-                                                        placeholder = { Text("Direkt MP3 Linki (https://...mp3)", color = SquadTextSecondary, fontSize = 10.sp) },
-                                                        colors = OutlinedTextFieldDefaults.colors(
-                                                            focusedBorderColor = SquadPrimary,
-                                                            unfocusedBorderColor = SquadHover,
-                                                            focusedContainerColor = SquadBackground,
-                                                            unfocusedContainerColor = SquadBackground,
-                                                            focusedTextColor = Color.White,
-                                                            unfocusedTextColor = Color.White
-                                                        ),
-                                                        modifier = Modifier.fillMaxWidth().height(44.dp),
-                                                        textStyle = androidx.compose.ui.text.TextStyle(fontSize = 11.sp),
-                                                        singleLine = true
-                                                    )
                                                     Spacer(modifier = Modifier.height(8.dp))
                                                     Button(
                                                         onClick = {
-                                                            if (newSongTitle.trim().isEmpty() || newSongUrl.trim().isEmpty()) {
-                                                                android.widget.Toast.makeText(context, "Lütfen başlık ve MP3 linki alanlarını doldurun!", android.widget.Toast.LENGTH_SHORT).show()
+                                                            if (newSongTitle.trim().isEmpty()) {
+                                                                android.widget.Toast.makeText(context, "Lütfen geçerli bir şarkı başlığı girin!", android.widget.Toast.LENGTH_SHORT).show()
+                                                            } else if (newSongArtist.trim().isEmpty()) {
+                                                                android.widget.Toast.makeText(context, "Lütfen geçerli bir sanatçı veya yayıncı adı girin!", android.widget.Toast.LENGTH_SHORT).show()
                                                             } else {
-                                                                val cleanUrl = newSongUrl.trim()
-                                                                val cleanTitle = newSongTitle.trim()
-                                                                val cleanArtist = if (newSongArtist.trim().isEmpty()) "Bilinmeyen Sanatçı" else newSongArtist.trim()
-                                                                
-                                                                customSongs.add(SquadSong(cleanTitle, cleanArtist, cleanUrl, "Özel Eklenenler"))
-                                                                
-                                                                newSongTitle = ""
-                                                                newSongArtist = ""
-                                                                newSongUrl = ""
-                                                                isAddFormExpanded = false
-                                                                android.widget.Toast.makeText(context, "Şarkı başarıyla kütüphanenize eklendi!", android.widget.Toast.LENGTH_SHORT).show()
+                                                                filePickerLauncher.launch("audio/*")
                                                             }
                                                         },
                                                         modifier = Modifier.fillMaxWidth().height(36.dp),
@@ -984,16 +1160,16 @@ fun RoomScreen(
                                                         colors = ButtonDefaults.buttonColors(containerColor = SquadPrimary),
                                                         contentPadding = PaddingValues(0.dp)
                                                     ) {
-                                                        Text("LİSTEYE EKLE", color = Color.Black, fontWeight = FontWeight.Bold, fontSize = 10.sp)
+                                                        Text("DOSYA SEÇ VE EKLE", color = Color.Black, fontWeight = FontWeight.Bold, fontSize = 10.sp)
                                                     }
                                                 }
                                             }
                                         }
-
-                                        Spacer(modifier = Modifier.height(6.dp))
+                                        
+                                        Spacer(modifier = Modifier.height(4.dp))
                                         
                                         Text(
-                                            text = "ℹ️ Geliştirici Notu: SQUAD_SONG_LIBRARY listesine yeni MP3 linkleri ekleyerek veya yukarıdaki formu kullanarak arşivi dilediğiniz gibi güncelleyebilirsiniz.",
+                                            text = "ℹ️ Not: Cihazınızdan kaydettiğiniz tüm şarkılar odadaki diğer kullanıcılara doğrudan MP3 senkronizasyonu ile gönderilecektir.",
                                             color = SquadTextSecondary.copy(alpha = 0.7f),
                                             fontSize = 8.5.sp,
                                             lineHeight = 11.sp
@@ -1032,6 +1208,10 @@ fun RoomScreen(
                                                 if (isBroadcastingMyBeam) {
                                                     viewModel.updateRoomNowPlaying(roomId, null)
                                                 } else {
+                                                    if (!audioPermissionState.status.isGranted) {
+                                                        audioPermissionState.launchPermissionRequest()
+                                                    }
+                                                    isMuted = false
                                                     viewModel.updateRoomNowPlaying(roomId, "squad_beam:$currentUsername")
                                                 }
                                             },
@@ -1095,7 +1275,7 @@ fun RoomScreen(
                         }
                         
                         // SHARED INCOMING MEDIA TRACK NOTIFICATION BANNER
-                        if (sharedIncomingMedia != null) {
+                        if (sharedIncomingMedia != null && isRoomCreator) {
                             val mediaTitle = if (sharedIncomingMedia!!.startsWith("mp3:")) {
                                 sharedIncomingMedia!!.substringAfter("mp3:").substringBefore("|")
                             } else {
@@ -1184,7 +1364,30 @@ fun RoomScreen(
                             }
                         } else {
                             val mediaId = playingNow
-                            key(mediaId) {
+                            val isMp3 = mediaId.startsWith("mp3:")
+                            val trackTitle = when {
+                                isMp3 -> mediaId.removePrefix("mp3:").split("|").firstOrNull() ?: "Ortak Parça"
+                                mediaId.startsWith("squad_beam:") -> {
+                                    val name = mediaId.removePrefix("squad_beam:")
+                                    "🔊 $name ŞU ANDA SİSTEM SESİNİ YAYINLIYOR"
+                                }
+                                mediaId.startsWith("yt_music:") || mediaId.startsWith("yt_music_playlist:") || mediaId.startsWith("yt_music_both:") -> {
+                                    when {
+                                        mediaId.startsWith("yt_music_both:") -> "YouTube Music Parçası & Listesi"
+                                        mediaId.startsWith("yt_music_playlist:") -> "YouTube Music Çalma Listesi"
+                                        else -> "YouTube Music Parçası"
+                                    }
+                                }
+                                mediaId.startsWith("playlist:") -> "YouTube Çalma Listesi"
+                                mediaId.startsWith("both:") -> "YouTube Videosu & Listesi"
+                                else -> "YouTube Medyası"
+                            }
+
+                            val localMatchedSong = if (isMp3) {
+                                savedSongsList.find { it.title.equals(trackTitle, ignoreCase = true) }
+                            } else null
+
+                            key(mediaId, localMatchedSong != null) {
                                 var webViewRef by remember { mutableStateOf<WebView?>(null) }
 
                                 DisposableEffect(mediaId) {
@@ -1203,14 +1406,43 @@ fun RoomScreen(
                                     }
                                 }
 
+                                LaunchedEffect(playbackVersion) {
+                                    val webView = webViewRef
+                                    val isCreator = (currentRoomCreator == null) || (currentRoomCreator == currentUsername)
+                                    if (webView != null && !isCreator) {
+                                        val state = playbackState
+                                        val time = playbackTime
+                                        val version = playbackVersion
+                                        val androidNow = viewModel.getEstimatedServerTime()
+                                        val elapsedSinceWrite = (androidNow - version) / 1000.0
+                                        
+                                        val queryStr = """
+                                            if (window.syncPlayback) {
+                                                var adjustedTime = $time;
+                                                if ('$state' === 'PLAYING' && $elapsedSinceWrite > 0 && $elapsedSinceWrite < 600) {
+                                                    adjustedTime += $elapsedSinceWrite;
+                                                }
+                                                window.syncPlayback('$state', adjustedTime, Date.now());
+                                            }
+                                        """.trimIndent()
+                                        webView.evaluateJavascript(queryStr, null)
+                                    }
+                                }
+
+                                LaunchedEffect(mediaVolume, webViewRef) {
+                                    webViewRef?.evaluateJavascript(
+                                        "if (typeof player !== 'undefined' && player && typeof player.setVolume === 'function') { player.setVolume(${mediaVolume * 100}); } else if (typeof audio !== 'undefined' && audio) { audio.volume = $mediaVolume; }", 
+                                        null
+                                    )
+                                }
+
                                 val isSquadBeam = mediaId.startsWith("squad_beam:")
-                                val isMp3 = mediaId.startsWith("mp3:")
                                 val isYtMusic = mediaId.startsWith("yt_music:") || mediaId.startsWith("yt_music_playlist:") || mediaId.startsWith("yt_music_both:")
                                 val isYtPlaylistOnly = mediaId.startsWith("playlist:")
                                 val isYtBoth = mediaId.startsWith("both:")
                                 val isYt = !isMp3 && !isSquadBeam
 
-                                val embedUrl = when {
+                                val rawEmbedUrl = when {
                                     isMp3 -> {
                                         val parts = mediaId.removePrefix("mp3:").split("|")
                                         parts.getOrNull(1) ?: parts.getOrNull(0) ?: ""
@@ -1218,22 +1450,27 @@ fun RoomScreen(
                                     else -> mediaId
                                 }
 
-                                val trackTitle = when {
-                                    isMp3 -> mediaId.removePrefix("mp3:").split("|").firstOrNull() ?: "Ortak Parça"
-                                    isSquadBeam -> {
-                                        val name = mediaId.removePrefix("squad_beam:")
-                                        "🔊 $name ŞU ANDA SİSTEM SESİNİ YAYINLIYOR"
-                                    }
-                                    isYtMusic -> {
-                                        when {
-                                            mediaId.startsWith("yt_music_both:") -> "YouTube Music Parçası & Listesi"
-                                            mediaId.startsWith("yt_music_playlist:") -> "YouTube Music Çalma Listesi"
-                                            else -> "YouTube Music Parçası"
+                                val embedUrl = if (isMp3) {
+                                    if (localMatchedSong != null) {
+                                        val file = java.io.File(localMatchedSong.filePath)
+                                        if (file.exists()) {
+                                            "file://${file.absolutePath}"
+                                        } else {
+                                            rawEmbedUrl
                                         }
+                                    } else if (rawEmbedUrl.startsWith("/") || rawEmbedUrl.startsWith("file://") || rawEmbedUrl.contains("/squad_songs/")) {
+                                        val filename = rawEmbedUrl.substringAfterLast("/")
+                                        val localFile = java.io.File(context.filesDir, "squad_songs/$filename")
+                                        if (localFile.exists()) {
+                                            "file://${localFile.absolutePath}"
+                                        } else {
+                                             rawEmbedUrl
+                                        }
+                                    } else {
+                                        rawEmbedUrl
                                     }
-                                    isYtPlaylistOnly -> "YouTube Çalma Listesi"
-                                    isYtBoth -> "YouTube Videosu & Listesi"
-                                    else -> "YouTube Medyası"
+                                } else {
+                                    rawEmbedUrl
                                 }
 
                                 Column(
@@ -1318,16 +1555,18 @@ fun RoomScreen(
                                         }
 
                                         // Close button
-                                        IconButton(
-                                            onClick = { viewModel.updateRoomNowPlaying(roomId, null) },
-                                            modifier = Modifier.size(24.dp)
-                                        ) {
-                                            Icon(
-                                                imageVector = Icons.Default.Close,
-                                                contentDescription = "Kapat",
-                                                tint = SquadRed,
-                                                modifier = Modifier.size(16.dp)
-                                            )
+                                        if (isRoomCreator) {
+                                            IconButton(
+                                                onClick = { viewModel.updateRoomNowPlaying(roomId, null) },
+                                                modifier = Modifier.size(24.dp)
+                                            ) {
+                                                Icon(
+                                                    imageVector = Icons.Default.Close,
+                                                    contentDescription = "Kapat",
+                                                    tint = SquadRed,
+                                                    modifier = Modifier.size(16.dp)
+                                                )
+                                            }
                                         }
                                     }
 
@@ -1349,8 +1588,18 @@ fun RoomScreen(
                                                         ViewGroup.LayoutParams.MATCH_PARENT
                                                     )
                                                     settings.javaScriptEnabled = true
+                                                    addJavascriptInterface(object {
+                                                        @android.webkit.JavascriptInterface
+                                                        fun onStateChange(state: String, time: Double, duration: Double) {
+                                                            viewModel.updatePlaybackState(state, time, duration)
+                                                        }
+                                                    }, "AndroidControl")
                                                     settings.domStorageEnabled = true
                                                     settings.databaseEnabled = true
+                                                    settings.allowFileAccess = true
+                                                    settings.allowContentAccess = true
+                                                    settings.allowFileAccessFromFileURLs = true
+                                                    settings.allowUniversalAccessFromFileURLs = true
                                                     settings.mediaPlaybackRequiresUserGesture = false
                                                     settings.useWideViewPort = true
                                                     settings.loadWithOverviewMode = true
@@ -1449,7 +1698,7 @@ fun RoomScreen(
                                                               </style>
                                                             </head>
                                                             <body>
-                                                              <iframe id="player" src="$finalIframeSrc&origin=https://www.youtube.com&widget_referrer=https://www.youtube.com&rel=0" allow="autoplay; encrypted-media; picture-in-picture" allowfullscreen></iframe>
+                                                              <div id="player"></div>
                                                               <script>
                                                                 var tag = document.createElement('script');
                                                                 tag.src = "https://www.youtube.com/iframe_api";
@@ -1457,6 +1706,63 @@ fun RoomScreen(
 
 
                                                                 var player;
+                                                                var lastSend = 0;
+
+                                                                var lastSyncState = 'PLAYING';
+                                                                var lastSyncTime = 0;
+                                                                var lastSyncTimestamp = 0;
+
+                                                                window.syncPlayback = function(state, time, timestamp) {
+                                                                  lastSyncState = state;
+                                                                  lastSyncTime = parseFloat(time);
+                                                                  lastSyncTimestamp = parseFloat(timestamp);
+                                                                  
+                                                                  applyPlaybackSync();
+                                                                };
+
+                                                                function applyPlaybackSync() {
+                                                                  if (!player || typeof player.getPlayerState !== 'function') return;
+                                                                  if (lastSyncTimestamp === 0) return;
+                                                                  
+                                                                  var state = lastSyncState;
+                                                                  var targetTime = lastSyncTime;
+                                                                  var timestamp = lastSyncTimestamp;
+                                                                  
+                                                                  var elapsed = (Date.now() - timestamp) / 1000.0;
+                                                                  if (state === 'PLAYING' && elapsed > 0 && elapsed < 600) {
+                                                                    targetTime += elapsed;
+                                                                  }
+                                                                  
+                                                                  var curTime = player.getCurrentTime();
+                                                                  var curState = player.getPlayerState();
+                                                                  
+                                                                  if (state === 'PLAYING') {
+                                                                    if (Math.abs(curTime - targetTime) > 0.5) {
+                                                                      player.seekTo(targetTime, true);
+                                                                    }
+                                                                    if (curState !== YT.PlayerState.PLAYING) {
+                                                                      player.playVideo();
+                                                                    }
+                                                                  } else if (state === 'PAUSED') {
+                                                                    if (Math.abs(curTime - targetTime) > 0.5) {
+                                                                      player.seekTo(targetTime, true);
+                                                                    }
+                                                                    if (curState !== YT.PlayerState.PAUSED) {
+                                                                      player.pauseVideo();
+                                                                    }
+                                                                  }
+                                                                }
+
+                                                                function notifyState(state) {
+                                                                  if (player && typeof player.getCurrentTime === 'function') {
+                                                                    var curTime = player.getCurrentTime();
+                                                                    var duration = player.getDuration() || 0.0;
+                                                                    if (window.AndroidControl) {
+                                                                      window.AndroidControl.onStateChange(state, curTime, duration);
+                                                                    }
+                                                                  }
+                                                                }
+
                                                                 function onYouTubeIframeAPIReady() {
                                                                   var playerConfig = {
                                                                     height: '100%',
@@ -1478,6 +1784,32 @@ fun RoomScreen(
                                                                     }
                                                                   };
                                                                   
+                                                                  if ($isRoomCreator) {
+                                                                    playerConfig.events.onStateChange = function(event) {
+                                                                      var stateCode = event.data;
+                                                                      if (stateCode == YT.PlayerState.PAUSED) {
+                                                                        notifyState('PAUSED');
+                                                                      } else if (stateCode == YT.PlayerState.PLAYING) {
+                                                                        notifyState('PLAYING');
+                                                                      }
+                                                                    };
+                                                                  } else {
+                                                                    playerConfig.events.onStateChange = function(event) {
+                                                                      var stateCode = event.data;
+                                                                      if (stateCode == YT.PlayerState.PLAYING) {
+                                                                        var targetTime = lastSyncTime;
+                                                                        var elapsed = (Date.now() - lastSyncTimestamp) / 1000.0;
+                                                                        if (lastSyncState === 'PLAYING' && elapsed > 0 && elapsed < 600) {
+                                                                          targetTime += elapsed;
+                                                                        }
+                                                                        var curTime = player.getCurrentTime();
+                                                                        if (Math.abs(curTime - targetTime) > 0.5) {
+                                                                          player.seekTo(targetTime, true);
+                                                                        }
+                                                                      }
+                                                                    };
+                                                                  }
+                                                                  
                                                                   var vId = $videoIdJs;
                                                                   var lId = $listIdJs;
                                                                   
@@ -1495,7 +1827,29 @@ fun RoomScreen(
                                                                 }
 
                                                                 function onPlayerReady(event) {
+                                                                  if (player && typeof player.setVolume === 'function') {
+                                                                    player.setVolume(${mediaVolume * 100});
+                                                                  }
                                                                   event.target.playVideo();
+                                                                  
+                                                                  if ($isRoomCreator) {
+                                                                    setInterval(function() {
+                                                                      if (player && typeof player.getPlayerState === 'function') {
+                                                                        var pState = player.getPlayerState();
+                                                                        if (pState === YT.PlayerState.PLAYING) {
+                                                                          notifyState('PLAYING');
+                                                                        }
+                                                                      }
+                                                                    }, 1000);
+                                                                  } else {
+                                                                    setTimeout(function() {
+                                                                      applyPlaybackSync();
+                                                                    }, 500);
+                                                                    setInterval(function() {
+                                                                      applyPlaybackSync();
+                                                                    }, 1000);
+                                                                  }
+                                                                  
                                                                   setTimeout(function() {
                                                                     try {
                                                                       if (player && player.playVideo) {
@@ -1682,7 +2036,103 @@ fun RoomScreen(
                                                                     </div>
                                                                     <div class="title">${trackTitle}</div>
                                                                     <div class="status">SQUAD ORTAK MEDYA SİSTEMİ</div>
-                                                                    <audio id="audio" src="${embedUrl}" ${if (isMp3) "controls" else ""} autoplay playsinline></audio>
+                                                                    <audio id="audio" src="${embedUrl}" ${if (isMp3 && isRoomCreator) "controls" else ""} autoplay playsinline></audio>
+                                                                    <script>
+                                                                      var audio = document.getElementById('audio');
+                                                                      if (audio) {
+                                                                        audio.volume = $mediaVolume;
+                                                                        var lastSend = 0;
+                                                                        
+                                                                        var lastSyncState = 'PLAYING';
+                                                                        var lastSyncTime = 0;
+                                                                        var lastSyncTimestamp = 0;
+
+                                                                        window.syncPlayback = function(state, time, timestamp) {
+                                                                          lastSyncState = state;
+                                                                          lastSyncTime = parseFloat(time);
+                                                                          lastSyncTimestamp = parseFloat(timestamp);
+                                                                          
+                                                                          applyPlaybackSync();
+                                                                        };
+
+                                                                        function applyPlaybackSync() {
+                                                                          if (!audio) return;
+                                                                          if (lastSyncTimestamp === 0) return;
+                                                                          var state = lastSyncState;
+                                                                          var targetTime = lastSyncTime;
+                                                                          var timestamp = lastSyncTimestamp;
+                                                                          
+                                                                          var elapsed = (Date.now() - timestamp) / 1000.0;
+                                                                          if (state === 'PLAYING' && elapsed > 0 && elapsed < 600) {
+                                                                            targetTime += elapsed;
+                                                                          }
+                                                                          
+                                                                          if (Math.abs(audio.currentTime - targetTime) > 0.5) {
+                                                                            audio.currentTime = targetTime;
+                                                                          }
+                                                                          
+                                                                          if (state === 'PLAYING') {
+                                                                            if (audio.paused) {
+                                                                              audio.play().catch(function(e){});
+                                                                            }
+                                                                          } else {
+                                                                            if (!audio.paused) {
+                                                                              audio.pause();
+                                                                            }
+                                                                          }
+                                                                        }
+
+                                                                        function notifyState(evt) {
+                                                                          var state = audio.paused ? 'PAUSED' : 'PLAYING';
+                                                                          var duration = audio.duration || 0.0;
+                                                                          if (window.AndroidControl) {
+                                                                            window.AndroidControl.onStateChange(state, audio.currentTime, duration);
+                                                                          }
+                                                                        }
+                                                                        
+                                                                        if (${isRoomCreator}) {
+                                                                          audio.addEventListener('play', notifyState);
+                                                                          audio.addEventListener('pause', notifyState);
+                                                                          audio.addEventListener('seeked', notifyState);
+                                                                          
+                                                                          // Periodic heartbeat
+                                                                          audio.addEventListener('timeupdate', function() {
+                                                                            var now = Date.now();
+                                                                            if (now - lastSend > 1000) {
+                                                                              lastSend = now;
+                                                                              var state = audio.paused ? 'PAUSED' : 'PLAYING';
+                                                                              var duration = audio.duration || 0.0;
+                                                                              if (window.AndroidControl) {
+                                                                                window.AndroidControl.onStateChange(state, audio.currentTime, duration);
+                                                                              }
+                                                                            }
+                                                                          });
+                                                                        } else {
+                                                                          function onBufferReady() {
+                                                                            if (lastSyncState === 'PLAYING') {
+                                                                              var elapsed = lastSyncTimestamp ? (Date.now() - lastSyncTimestamp) / 1000.0 : 0;
+                                                                              var targetTime = lastSyncTime;
+                                                                              if (elapsed > 0 && elapsed < 600) {
+                                                                                targetTime += elapsed;
+                                                                              }
+                                                                              if (Math.abs(audio.currentTime - targetTime) > 0.5) {
+                                                                                audio.currentTime = targetTime;
+                                                                              }
+                                                                            }
+                                                                          }
+                                                                          audio.addEventListener('canplaythrough', onBufferReady);
+                                                                          audio.addEventListener('playing', onBufferReady);
+                                                                          audio.addEventListener('canplay', onBufferReady);
+                                                                          
+                                                                          setTimeout(function() {
+                                                                            applyPlaybackSync();
+                                                                          }, 500);
+                                                                          setInterval(function() {
+                                                                            applyPlaybackSync();
+                                                                          }, 1000);
+                                                                        }
+                                                                      }
+                                                                    </script>
                                                                   </div>
                                                                 </body>
                                                                 </html>
@@ -1705,6 +2155,61 @@ fun RoomScreen(
                                             modifier = Modifier.fillMaxSize()
                                         )
                                     }
+                                    
+                                    if (playbackDuration > 0) {
+                                        Spacer(modifier = Modifier.height(4.dp))
+                                        
+                                        var currentDisplayTime by remember { mutableStateOf(playbackTime) }
+                                        LaunchedEffect(playbackTime, playbackState, playbackVersion) {
+                                            currentDisplayTime = playbackTime
+                                            if (playbackState == "PLAYING") {
+                                                while (true) {
+                                                    val now = viewModel.getEstimatedServerTime()
+                                                    val elapsed = (now - playbackVersion) / 1000.0
+                                                    if (elapsed > 0 && elapsed < 600) { // Limit elapsed offset to avoid huge jumps
+                                                        currentDisplayTime = playbackTime + elapsed
+                                                    }
+                                                    kotlinx.coroutines.delay(100)
+                                                }
+                                            }
+                                        }
+
+                                        Row(
+                                            modifier = Modifier.fillMaxWidth().padding(horizontal = 8.dp),
+                                            verticalAlignment = Alignment.CenterVertically
+                                        ) {
+                                            val currentMin = (currentDisplayTime / 60).toInt()
+                                            val currentSec = (currentDisplayTime % 60).toInt()
+                                            val durationMin = (playbackDuration / 60).toInt()
+                                            val durationSec = (playbackDuration % 60).toInt()
+                                            
+                                            Text(
+                                                text = String.format("%d:%02d", currentMin.coerceAtLeast(0), currentSec.coerceAtLeast(0)),
+                                                color = Color.White.copy(alpha = 0.8f),
+                                                fontSize = 10.sp,
+                                                fontWeight = FontWeight.Medium
+                                            )
+                                            
+                                            androidx.compose.material3.LinearProgressIndicator(
+                                                progress = { (currentDisplayTime.toFloat() / playbackDuration.toFloat()).coerceIn(0f, 1f) },
+                                                modifier = Modifier
+                                                    .weight(1f)
+                                                    .padding(horizontal = 8.dp)
+                                                    .height(6.dp)
+                                                    .clip(RoundedCornerShape(3.dp)),
+                                                color = SquadPrimary,
+                                                trackColor = Color.White.copy(alpha = 0.2f),
+                                                strokeCap = androidx.compose.ui.graphics.StrokeCap.Round
+                                            )
+                                            
+                                            Text(
+                                                text = String.format("%d:%02d", durationMin.coerceAtLeast(0), durationSec.coerceAtLeast(0)),
+                                                color = Color.White.copy(alpha = 0.8f),
+                                                fontSize = 10.sp,
+                                                fontWeight = FontWeight.Medium
+                                            )
+                                        }
+                                    }
 
                                     if (isYt) {
                                         Spacer(modifier = Modifier.height(4.dp))
@@ -1715,6 +2220,41 @@ fun RoomScreen(
                                             textAlign = TextAlign.Center,
                                             modifier = Modifier.fillMaxWidth()
                                         )
+                                    }
+
+                                    if (isMp3 && isRoomCreator) {
+                                        Spacer(modifier = Modifier.height(8.dp))
+                                        Button(
+                                            onClick = {
+                                                val rCode = room?.roomCode ?: ""
+                                                val filePath = localMatchedSong?.filePath ?: (mediaId.removePrefix("mp3:").split("|").getOrNull(1) ?: "")
+                                                if (filePath.isNotEmpty()) {
+                                                    viewModel.shareLocalMp3File(rCode, trackTitle, localMatchedSong?.artist ?: "Bilinmeyen Sanatçı", filePath)
+                                                    android.widget.Toast.makeText(context, "Şarkı senkronizasyon paketi odadaki diğer kullanıcılara tekrar gönderildi!", android.widget.Toast.LENGTH_SHORT).show()
+                                                } else {
+                                                    android.widget.Toast.makeText(context, "Senkronizasyon dosyası bulunamadı!", android.widget.Toast.LENGTH_SHORT).show()
+                                                }
+                                            },
+                                            colors = ButtonDefaults.buttonColors(containerColor = SquadPrimary),
+                                            shape = RoundedCornerShape(4.dp),
+                                            modifier = Modifier
+                                                .fillMaxWidth()
+                                                .height(36.dp)
+                                        ) {
+                                            Icon(
+                                                imageVector = Icons.Default.Public,
+                                                contentDescription = null,
+                                                tint = Color.Black,
+                                                modifier = Modifier.size(14.dp)
+                                            )
+                                            Spacer(modifier = Modifier.width(6.dp))
+                                            Text(
+                                                text = "⚡ TÜM ODAYA SENKRONİZE ET",
+                                                color = Color.Black,
+                                                fontSize = 10.sp,
+                                                fontWeight = FontWeight.Bold
+                                            )
+                                        }
                                     }
                                 }
                             }
@@ -1996,6 +2536,12 @@ fun RoomScreen(
                                                                     <div class="title">${trackTitle}</div>
                                                                     <div class="status">SQUAD ORTAK MEDYA SİSTEMİ</div>
                                                                     <audio id="audio" src="${embedUrl}" ${if (isMp3) "controls" else ""} autoplay playsinline></audio>
+                                                                    <script>
+                                                                      var audio = document.getElementById('audio');
+                                                                      if (audio) {
+                                                                        audio.volume = $mediaVolume;
+                                                                      }
+                                                                    </script>
                                                                   </div>
                                                                 </body>
                                                                 </html>
@@ -2102,6 +2648,37 @@ fun RoomScreen(
                     }
                 }
         }
+    }
+
+    if (showMaintenanceAnnouncement) {
+        AlertDialog(
+            onDismissRequest = { showMaintenanceAnnouncement = false },
+            containerColor = SquadSurfaceLayer,
+            titleContentColor = SquadTextPrimary,
+            textContentColor = SquadTextSecondary,
+            title = {
+                Text(
+                    text = "Duyuru",
+                    fontWeight = FontWeight.Bold,
+                    color = SquadPrimary
+                )
+            },
+            text = {
+                Text(
+                    text = "Şu anda YouTube ve Squad Beam özelliklerimizde bakım var.",
+                    color = Color.White,
+                    fontSize = 14.sp
+                )
+            },
+            confirmButton = {
+                Button(
+                    onClick = { showMaintenanceAnnouncement = false },
+                    colors = ButtonDefaults.buttonColors(containerColor = SquadPrimary)
+                ) {
+                    Text("Tamam", color = Color.Black, fontWeight = FontWeight.Bold)
+                }
+            }
+        )
     }
 }
 }

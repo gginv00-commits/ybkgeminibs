@@ -4,11 +4,21 @@ import com.example.data.dao.AppDao
 import com.example.data.entity.SyncRoom
 import com.example.data.entity.ChatMessage
 import com.example.data.entity.User
+import com.example.data.entity.SavedSong
 import kotlinx.coroutines.flow.Flow
 
 class AppRepository(private val dao: AppDao) {
     val allRooms: Flow<List<SyncRoom>> = dao.getAllRooms()
     val allUsers: Flow<List<User>> = dao.getAllUsers()
+    val allSavedSongs: Flow<List<SavedSong>> = dao.getAllSavedSongs()
+
+    suspend fun insertSavedSong(song: SavedSong): Long {
+        return dao.insertSavedSong(song)
+    }
+
+    suspend fun deleteSavedSong(songId: Int) {
+        dao.deleteSavedSong(songId)
+    }
 
     fun getRoomById(roomId: Int): Flow<SyncRoom?> = dao.getRoomById(roomId)
 

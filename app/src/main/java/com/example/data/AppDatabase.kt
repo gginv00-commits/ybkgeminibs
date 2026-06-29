@@ -7,7 +7,9 @@ import com.example.data.entity.ChatMessage
 import com.example.data.entity.User
 import com.example.data.dao.AppDao
 
-@Database(entities = [SyncRoom::class, ChatMessage::class, User::class], version = 3, exportSchema = false)
+import com.example.data.entity.SavedSong
+
+@Database(entities = [SyncRoom::class, ChatMessage::class, User::class, SavedSong::class], version = 4, exportSchema = false)
 abstract class AppDatabase : RoomDatabase() {
     abstract fun appDao(): AppDao
 }

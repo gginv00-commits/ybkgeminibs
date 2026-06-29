@@ -38,11 +38,28 @@ class SquadRoomService : Service() {
         val notification = createNotification(rCode)
 
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-            startForeground(
-                NOTIFICATION_ID,
-                notification,
-                ServiceInfo.FOREGROUND_SERVICE_TYPE_MICROPHONE
-            )
+            try {
+                val hasMic = androidx.core.content.ContextCompat.checkSelfPermission(this, android.Manifest.permission.RECORD_AUDIO) == android.content.pm.PackageManager.PERMISSION_GRANTED
+                if (hasMic) {
+                    startForeground(
+                        NOTIFICATION_ID,
+                        notification,
+                        ServiceInfo.FOREGROUND_SERVICE_TYPE_MICROPHONE
+                    )
+                } else {
+                    startForeground(
+                        NOTIFICATION_ID, 
+                        notification,
+                        android.content.pm.ServiceInfo.FOREGROUND_SERVICE_TYPE_MEDIA_PLAYBACK
+                    )
+                }
+            } catch (e: Exception) {
+                try {
+                    startForeground(NOTIFICATION_ID, notification)
+                } catch (e2: Exception) {
+                    e2.printStackTrace()
+                }
+            }
         } else {
             startForeground(NOTIFICATION_ID, notification)
         }
@@ -54,7 +71,12 @@ class SquadRoomService : Service() {
             
             // Maintain member node in room list so they never get disconnected
             val memberNode = fb.getReference("rooms").child(rCode).child("members").child(username)
-            memberNode.setValue(mapOf("isMuted" to false, "isSpeaking" to false))
+            val updates = mapOf(
+                "isMuted" to (intent?.getBooleanExtra("isMuted", true) ?: true),
+                "isSpeaking" to false,
+                "name" to username
+            )
+            memberNode.updateChildren(updates)
             memberNode.onDisconnect().removeValue()
 
             val ref = fb.getReference("rooms").child(rCode).child("members")

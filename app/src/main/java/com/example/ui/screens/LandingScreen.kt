@@ -3,6 +3,9 @@ package com.example.ui.screens
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.Image
+import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
@@ -53,11 +56,11 @@ fun LandingScreen(
             codeError = "Lütfen bir oda kodu girin."
         } else {
             viewModel.setSavedUsername(username)
-            viewModel.joinRoomByCode(roomCode) { roomId ->
+            viewModel.joinRoomByCode(roomCode) { roomId, errorMsg ->
                 if (roomId != null) {
                     onNavigateToRoom(roomId)
                 } else {
-                    codeError = "Yanlış kod, oda bulunamadı."
+                    codeError = errorMsg ?: "Yanlış kod, oda bulunamadı."
                 }
             }
         }
@@ -144,29 +147,34 @@ fun LandingScreen(
             Spacer(modifier = Modifier.height(16.dp))
             
             val title = buildAnnotatedString {
-                append("OYUNDA\nKONUŞ,\n")
+                append("ARKADAŞLARIN İLE\n")
                 withStyle(SpanStyle(color = SquadPrimary)) {
-                    append("MÜZİK ")
+                    append("OYUN OYNA,\n")
                 }
-                append("AÇ.")
+                withStyle(SpanStyle(color = SquadGreen)) {
+                    append("SOHBET ET,\n")
+                }
+                withStyle(SpanStyle(color = SquadPrimary)) {
+                    append("MÜZİK DİNLE.")
+                }
             }
             
             Text(
                 text = title,
-                fontSize = 40.sp,
+                fontSize = 34.sp,
                 fontWeight = FontWeight.Black,
                 color = SquadTextPrimary,
-                lineHeight = 36.sp,
-                letterSpacing = (-1).sp
+                lineHeight = 38.sp,
+                letterSpacing = (-0.5).sp
             )
             
             Spacer(modifier = Modifier.height(16.dp))
             
             Text(
-                text = "Arkadaşınla anında bağlan, C tuşuyla bas-konuş, ortak YouTube müziği senkron dinle. Sıfır kurulum, oda kodu yeter.",
+                text = "Arkadaşlarınla anında bağlan, dilediğin tuşla bas-konuş yap ve ortak ses/müzik odalarında sıfır gecikmeyle eğlen.",
                 color = SquadTextSecondary,
                 fontSize = 14.sp,
-                lineHeight = 20.sp
+                lineHeight = 21.sp
             )
             
             Spacer(modifier = Modifier.height(24.dp))

@@ -7,10 +7,20 @@ import androidx.room.Query
 import com.example.data.entity.SyncRoom
 import com.example.data.entity.ChatMessage
 import com.example.data.entity.User
+import com.example.data.entity.SavedSong
 import kotlinx.coroutines.flow.Flow
 
 @Dao
 interface AppDao {
+    @Query("SELECT * FROM saved_songs ORDER BY timestamp DESC")
+    fun getAllSavedSongs(): Flow<List<SavedSong>>
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun insertSavedSong(song: SavedSong): Long
+
+    @Query("DELETE FROM saved_songs WHERE id = :songId")
+    suspend fun deleteSavedSong(songId: Int)
+
     @Query("SELECT * FROM rooms ORDER BY timestamp DESC")
     fun getAllRooms(): Flow<List<SyncRoom>>
 
